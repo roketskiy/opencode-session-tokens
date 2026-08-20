@@ -11,10 +11,11 @@ export interface TokensLike {
 }
 
 export interface Usage {
-  /** 总 token（含 cache write，不含 cache read） */
+  /** 总 token（对齐 provider totalTokens：输入+输出+推理+缓存读+缓存写） */
   total: number
   input: number
   output: number
+  reasoning: number
   cacheRead: number
   cacheWrite: number
   /** 缓存命中率百分比，0-100；无缓存读写时为 undefined */
@@ -26,15 +27,19 @@ export function computeUsage(tokens: TokensLike | null | undefined): Usage | und
   if (!tokens) return undefined
   const input = num(tokens.input)
   const output = num(tokens.output)
+  const reasoning = num(tokens.reasoning)
   const cacheRead = num(tokens.cache?.read)
   const cacheWrite = num(tokens.cache?.write)
-  if (input === 0 && output === 0 && cacheRead === 0 && cacheWrite === 0) return undefined
-  const total = input + output + cacheWrite
+  if (input === 0 && output === 0 && reasoning === 0 && cacheRead === 0 && cacheWrite === 0) return undefined
+  // total 对齐 OpenCode 口径（provider usage.totalTokens = 拆分字段总和）：
+  // 非缓存输入 + 输出 + 推理 + 缓存读 + 缓存写
+  const total = input + output + reasoning + cacheRead + cacheWrite
   const div = cacheRead + cacheWrite
   return {
     total,
     input,
     output,
+    reasoning,
     cacheRead,
     cacheWrite,
     cacheHitPercent: div > 0 ? Math.round((cacheRead / div) * 100) : undefined,
@@ -66,20 +71,20 @@ function trim1(v: number): string {
 /** 紧凑模式一行：tokens 1.2M · cache 97% */
 export function renderCompact(u: Usage): string {
   const parts = [`tokens ${formatCompact(u.total)}`]
-  if (u.cacheHitPercent !== undefined && u.cacheWrite > 0) {
+  if (u.cacheHitPercent !== undefined) {
     parts.push(`cache ${u.cacheHitPercent}%`)
   }
   return parts.join(" · ")
 }
 
-/** 明细模式一行：tokens 1.2M · in 1.1M · out 43.4K · cache 97% */
+/** 明细模式一行：tokens 1.2M · in 43.4K · out 12.3K · cache 97% */
 export function renderDetails(u: Usage): string {
   const parts = [
     `tokens ${formatCompact(u.total)}`,
     `in ${formatCompact(u.input)}`,
     `out ${formatCompact(u.output)}`,
   ]
-  if (u.cacheHitPercent !== undefined && u.cacheWrite > 0) {
+  if (u.cacheHitPercent !== undefined) {
     parts.push(`cache ${u.cacheHitPercent}%`)
   }
   return parts.join(" · ")

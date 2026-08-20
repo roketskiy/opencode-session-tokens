@@ -77,6 +77,7 @@ const assertFrames = async () => {
       info: {
         id: "abc12345",
         title: "t",
+        // total 口径：2M + 1K + 0 + 50M read + 100K write = 52.1M，命中率 50M/50.1M ≈ 100%
         tokens: { input: 2_000_000, output: 1_000, reasoning: 0, cache: { read: 50_000_000, write: 100_000 } },
       },
     },
@@ -85,8 +86,27 @@ const assertFrames = async () => {
   const afterUpdate = setup.captureCharFrame()
   console.log("=== session.updated 后 ===")
   console.log(afterUpdate)
-  if (!afterUpdate.includes("tokens 2.1M") || !afterUpdate.includes("cache 100%")) {
+  if (!afterUpdate.includes("tokens 52.1M") || !afterUpdate.includes("cache 100%")) {
     throw new Error("session.updated 未正确更新底部条: " + afterUpdate)
+  }
+
+  // 纯缓存命中场景（write=0）：cache 也必须显示
+  handlers.get("session.updated")!({
+    properties: {
+      sessionID: "abc12345",
+      info: {
+        id: "abc12345",
+        title: "t",
+        tokens: { input: 50_000, output: 10_000, reasoning: 0, cache: { read: 300_000, write: 0 } },
+      },
+    },
+  })
+  await setup.flush()
+  const afterHitOnly = setup.captureCharFrame()
+  console.log("=== 纯命中（write=0）后 ===")
+  console.log(afterHitOnly)
+  if (!afterHitOnly.includes("cache 100%")) {
+    throw new Error("纯缓存命中未显示 cache: " + afterHitOnly)
   }
 
   snapshot = { id: "def67890", tokens: { input: 500, output: 300, reasoning: 0, cache: { read: 0, write: 200 } } }
@@ -95,7 +115,7 @@ const assertFrames = async () => {
   const afterIdle = setup.captureCharFrame()
   console.log("=== session.status idle 兜底（无缓存命中）===")
   console.log(afterIdle)
-  if (!afterIdle.includes("def67890") || afterIdle.includes("cache")) {
+  if (!afterIdle.includes("def67890") || !afterIdle.includes("cache 0%")) {
     throw new Error("idle 兜底未生效: " + afterIdle)
   }
   console.log("✅ 帧级断言通过（事件 → 信号 → 底部条渲染）")

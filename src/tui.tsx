@@ -50,14 +50,13 @@ const tui: TuiPlugin = async (api, options) => {
           : "tokens —"
         return (
           <box
-            width="100%"
             flexDirection="row"
             justifyContent="flex-end"
-            paddingRight={2}
-            paddingTop={1}
+            paddingRight={1}
             flexShrink={0}
+            height={1}
           >
-            <text fg={ctx.theme.current.textMuted}>
+            <text fg={ctx.theme.current.textMuted} wrapMode="none" height={1}>
               <span style={{ fg: ctx.theme.current.accent }}>{short}</span>
               {" · "}
               {text}
