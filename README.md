@@ -10,7 +10,9 @@ OpenCode 插件：在 TUI 底部常驻一条**当前会话的 token 用量统计
 
 - 由 `session.updated` 事件驱动，实时更新（无需手动刷新）
 - 回复轮次结束时（`session.status` idle）兜底读取 session 快照，避免事件时序遗漏
-- 缓存命中率：`cache.read / (cache.read + cache.write)`，无缓存读写时不显示
+- 统计口径与 OpenCode 一致：总 token = 非缓存输入 + 输出 + 推理 + 缓存读 + 缓存写（provider `totalTokens`）
+- 缓存命中率 = 缓存读 ÷（缓存读 + 缓存写 + 非缓存输入）。兼容两种 provider：OpenAI 兼容接口只报 `cached_tokens`（无写缓存），Anthropic 类报写缓存；无任何缓存输入时不显示
+- 会话短 id 显示 id 末尾 8 位，与会话列表/分享链接中的短 id 一致
 
 ## 安装
 

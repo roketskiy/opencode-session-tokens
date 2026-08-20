@@ -18,7 +18,13 @@ export interface Usage {
   reasoning: number
   cacheRead: number
   cacheWrite: number
-  /** 缓存命中率百分比，0-100；无缓存读写时为 undefined */
+  /**
+   * 缓存命中率百分比，0-100；无任何缓存输入时为 undefined。
+   * 口径：read / (read + write + input)，即"输入 token 中缓存命中的占比"。
+   * 兼容两种 provider：
+   * - OpenAI 兼容接口只报 cached_tokens（无 write），分母 = 命中 + 非缓存输入
+   * - Anthropic 类报 write，分母 = 命中 + 新写入 + 非缓存输入
+   */
   cacheHitPercent: number | undefined
 }
 
@@ -34,7 +40,9 @@ export function computeUsage(tokens: TokensLike | null | undefined): Usage | und
   // total 对齐 OpenCode 口径（provider usage.totalTokens = 拆分字段总和）：
   // 非缓存输入 + 输出 + 推理 + 缓存读 + 缓存写
   const total = input + output + reasoning + cacheRead + cacheWrite
-  const div = cacheRead + cacheWrite
+  // 命中率：缓存命中 / 全部输入（命中 + 新写 + 非缓存输入）。
+  // OpenAI 兼容 provider 不报 cache write（write=0），此时分母 = 命中 + 非缓存输入，仍正确。
+  const div = cacheRead + cacheWrite + input
   return {
     total,
     input,

@@ -42,7 +42,8 @@ const tui: TuiPlugin = async (api, options) => {
       // 底部常驻一条： ▸ 12345678 · tokens 1.2M · cache 97%
       app_bottom(ctx) {
         const bar = state()
-        const short = bar ? bar.sessionID.slice(0, 8) : "—"
+        // 短 id 取末尾 8 位：与 OpenCode 界面/分享短 id（如 7kfLmkPQ）一致
+        const short = bar ? bar.sessionID.slice(-8) : "—"
         const text = bar
           ? opts.format === "details"
             ? renderDetails(bar)

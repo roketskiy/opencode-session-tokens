@@ -77,7 +77,7 @@ const assertFrames = async () => {
       info: {
         id: "abc12345",
         title: "t",
-        // total 口径：2M + 1K + 0 + 50M read + 100K write = 52.1M，命中率 50M/50.1M ≈ 100%
+        // total 口径：2M + 1K + 0 + 50M read + 100K write = 52.1M；命中率 50M/(50M+100K+2M) ≈ 96%
         tokens: { input: 2_000_000, output: 1_000, reasoning: 0, cache: { read: 50_000_000, write: 100_000 } },
       },
     },
@@ -86,8 +86,31 @@ const assertFrames = async () => {
   const afterUpdate = setup.captureCharFrame()
   console.log("=== session.updated 后 ===")
   console.log(afterUpdate)
-  if (!afterUpdate.includes("tokens 52.1M") || !afterUpdate.includes("cache 100%")) {
+  if (!afterUpdate.includes("tokens 52.1M") || !afterUpdate.includes("cache 96%")) {
     throw new Error("session.updated 未正确更新底部条: " + afterUpdate)
+  }
+
+  // 真实场景回归：本机会话 ses_fe113b0fbffeV1wGHi7kfLmkPQ（OpenAI 兼容，write=0）
+  handlers.get("session.updated")!({
+    properties: {
+      sessionID: "ses_fe113b0fbffeV1wGHi7kfLmkPQ",
+      info: {
+        id: "ses_fe113b0fbffeV1wGHi7kfLmkPQ",
+        title: "t",
+        tokens: { input: 74235, output: 2000, reasoning: 1900, cache: { read: 292864, write: 0 } },
+      },
+    },
+  })
+  await setup.flush()
+  const afterReal = setup.captureCharFrame()
+  console.log("=== 真实数据（write=0，命中率应为 80%）===")
+  console.log(afterReal)
+  // 短 id 应显示尾部 8 位 7kfLmkPQ（与用户后台一致），而非前 8 位 ses_fe11
+  if (!afterReal.includes("7kfLmkPQ")) {
+    throw new Error("真实会话短 id 显示错误: " + afterReal)
+  }
+  if (!afterReal.includes("cache 80%")) {
+    throw new Error("真实会话命中率应为 80%: " + afterReal)
   }
 
   // 纯缓存命中场景（write=0）：cache 也必须显示
@@ -105,8 +128,8 @@ const assertFrames = async () => {
   const afterHitOnly = setup.captureCharFrame()
   console.log("=== 纯命中（write=0）后 ===")
   console.log(afterHitOnly)
-  if (!afterHitOnly.includes("cache 100%")) {
-    throw new Error("纯缓存命中未显示 cache: " + afterHitOnly)
+  if (!afterHitOnly.includes("cache 86%")) {
+    throw new Error("纯缓存命中命中率应为 86%: " + afterHitOnly)
   }
 
   snapshot = { id: "def67890", tokens: { input: 500, output: 300, reasoning: 0, cache: { read: 0, write: 200 } } }
